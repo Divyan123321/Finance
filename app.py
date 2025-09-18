@@ -88,11 +88,11 @@ def dashboard():
         username=("user")
         
     #Portfolio dashboard
-    portfolio=db.execute("SELECT * FROM portfolio WHERE user_id=?", user_id)
+    portfolio=db.execute("SELECT * FROM holdings WHERE user_id=?", user_id)
 
 
     #Watchlist dashboard
-    raw_watch=db.execute("SELECT * FROM watchlist WHERE user_id=?", user_id)
+    raw_watch=db.execute("SELECT * FROM watchlist WHERE id=?", user_id)
     watchlist=[]
     for r in raw_watch:
         sym=r["symbol"]
@@ -267,6 +267,40 @@ def trade(symbol):
 
 
     return render_template("trade.html", symbol=symbol, name=name, price=price)
+
+@app.route("/add_watchlist", methods=["POST"])
+def add_watchlist():
+    if "user_id" not in session:
+        return redirect("/login")
+    
+    user_id=session["user_id"]
+    symbol=request.form.get("symbol")
+
+    if not symbol:
+        return redirect("/dashbaord")
+    
+    # prevent duplicates
+    existing=db.execute("SELECT * FROM watchlist WHERE user_id=? AND symbol=", user_id,symbol)
+    if existing:
+        return redirect("/dashboard")
+    
+    db.execute("INSERT INTO watchlist (user_id, symbol) VALUES (?,?)", user_id, symbol)
+    return redirect("/dashboard")
+
+
+@app.route("/remove_watchlist", methods=["POST"])
+def remove_watchlist():
+    if "user_id" not in session:
+        return redirect("/login")
+    
+    user_id=session["user_id"]
+
+    symbol=request.form.get("symbol")
+
+    db.execute("DELETE FROM watchlist where user_id=? AND symbol=?", user_id, symbol)
+    return redirect("/dashboard")
+    
+
 
 if __name__ == "__main__":
     socketio.run(app,  debug=True)
