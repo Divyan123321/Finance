@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+
+{% block title %}Trade-finance{% endblock %}
+
+{% block content %}
+<h2>Trade {{ name }} ( {{ symbol }} )</h2>
+<p>Current price:$ {{ price }}</p>
+
+<form method="post">
+    <label>Quantity:</label>
+    <input type="number" name="quantity" min="1" required>
+
+    <label>Action:</label>
+
+    <select name="action">
+        <option value="Buy">Buy</option>
+        <option value="Sell">Sell</option>
+    </select>
+
+    <button type="submit">Submit</button>
+</form>
+{% endblock %}
