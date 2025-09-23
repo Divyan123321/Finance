@@ -2,11 +2,20 @@
 
 {% block title %}Home-finance{% endblock %}
 
+{% block style %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
 {% block content %}
-<h2>Get ready to start your virtual trading</h2>
-<p>Get started by logging in or registering and dont worry we gotchu!</p>
-<a href="/login"><button>Login</button></a>
-<a href="/register"><button>Register</button></a>
+<div class="home-container">
+    <h1>👋Get ready to start your virtual trading</h1>
+    <p>Get started by logging in or registering and dont worry we gotchu!</p>
+    <div class="home-buttons">
+        <a href="/login"><button class="btn">Login</button></a>
+        <a href="/register"><button class="btn">Register</button></a>
+    </div>
+</div>
 {% endblock %}
 
 

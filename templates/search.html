@@ -1,17 +1,26 @@
-(% extends "layout.html" %)
-(% block title %)Search stock(% endblock %)
-(% block content %)
+{% extends "layout.html" %}
+
+{% block title %}Search stock{% endblock %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/search.css') }}">
+{% endblock %}
+
+{% block content %}
+
 <h2>Search Stocks</h2>
-<form method="Post">
-    <input type="text", name="query", placeholder="Enter ticker" required>
+<form method="POST">
+    <input type="text" name="query" placeholder="Enter ticker" required>
     <button type="submit">Search</button>
 </form>
 
-(% if symbol %)
+{% if symbol %}
 <h3>Result</h3>
+    <div class="result-container">
+
 <p>Symbol: {{ symbol }}</p>
 <p>Name: {{ name }}</p>
-<p>Price: (( price ))</p>
+<p>Price: {{ price }}</p>
 
 <!-- trade button -->
  <a href="{{ url_for('trade', symbol=symbol) }}"><button>Trade {{ symbol }}</button></a>
@@ -19,6 +28,6 @@
 {% endif %}
 
 {% if error %}
-<p style="color:red;">{{ error }}</p>
+    <p class="error">{{ error }}</p>
 {% endif %}
-(% endblock %)
+{% endblock %}

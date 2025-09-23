@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@700&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(-45deg, #2c1a4f, #3b2a6f, #281b44, #1a1721);
+    background-size: 600% 600%;
+    color: #fff;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    animation: gradientBG 12s ease infinite;
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Particle container */
+.particles-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Particle styling */
+.particle {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    animation-name: floatParticle;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+/* Floating animation with diagonal drift */
+@keyframes floatParticle {
+    0% {
+        transform: translateY(0) translateX(0);
+        opacity: 0.6;
+    }
+    100% {
+        transform: translateY(-120vh) translateX(var(--drift, 20vw));
+        opacity: 0;
+    }
+}
+
+/* Ensure content is on top of particles */
+.content-wrapper {
+    position: relative;
+    z-index: 1;
+}

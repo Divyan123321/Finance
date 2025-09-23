@@ -2,21 +2,35 @@
 
 {% block title %}Trade-finance{% endblock %}
 
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trade.css') }}">
+{% endblock %}
+
 {% block content %}
 <h2>Trade {{ name }} ( {{ symbol }} )</h2>
 <p>Current price:$ {{ price }}</p>
 
-<form method="post">
+
+{% if error %}
+<p style="color:red;">{{ error }}</p>
+{% endif %}
+{% if success %}
+<p style="color:green;">{{ success }}</p>
+{% endif %}
+
+<form method="POST">
     <label>Quantity:</label>
     <input type="number" name="quantity" min="1" required>
 
     <label>Action:</label>
 
     <select name="action">
-        <option value="Buy">Buy</option>
-        <option value="Sell">Sell</option>
+        <option value="buy">Buy</option>
+        <option value="sell">Sell</option>
     </select>
 
     <button type="submit">Submit</button>
 </form>
+
+<a href="/dashboard">Back to Dashboard</a>
 {% endblock %}

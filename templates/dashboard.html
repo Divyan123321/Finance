@@ -2,44 +2,50 @@
 
 {% block title %}dashboard-finance{% endblock %}
 
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static' , filename='css/dashboard.css') }}">
+{% endblock %}
+
 {% block content %}
 
 <nav>
-    <a href="#overview">Overview</a>
-    <a href="#market">Live Market</a>
-    <a href="#portfolio">Portfolio</a>
-    <a href="#charts">Charts</a>
-    <a href="/logout">Logout</a>
-    <a href="#watchlist">Watchlist</a>
-    <a href="/search_stocks">Search/Trade</a>
+    <a href="#overview">📊Overview</a>
+    <a href="#market">📈Live Market</a>
+    <a href="#portfolio">💼Portfolio</a>
+    <a href="#charts">📉Charts</a>
+    <a href="/logout">🚪Logout</a>
+    <a href="#watchlist">⭐Watchlist</a>
+    <a href="/search_stocks">🔎Search/Trade</a>
+    <a href="#balance">💰Balance</a>
 </nav>
 <!-- overview section  -->
 
 <section id="overview">
-    <h2>Welcome {{ username }}!</h2>
-    <p>This is your dashboard</p>
+    <h2>👋Welcome {{ username }}!👍</h2>
+    <p>This is your dashboard.</p>
 </section>
 
 <!-- Live market section -->
 
+<div class="table-wrapper">
 <section id="market">
     <h3>Live Markets</h3>
     <table id="market-table">
         <thead>
             <tr>
-                <th>Symbol</th>
-                <th>Name</th>
-                <th>Price(USD)</th>
+                <th>🏦Symbol</th>
+                <th>🏷️Name</th>
+                <th>💵Price(USD)</th>
                 
             </tr>
         </thead>
         <tbody>
-            {% s stock in stocks %}
+            {% for s in stocks %}
             <tr>
                 <td>{{ s.symbol }}</td>
                 <td>{{ s.name }}</td>
                 <td class="market-price" data-symbol="{{ s.symbol }}">{{ s.price }}</td>
-                <td><a href="{{ url_for('trade', symbol=s.symbol) }}"><button>Buy/Sell</button></a></td>
+                <td><a href="{{ url_for('trade', symbol=s.symbol) }}"><button>Buy🛒/Sell💸</button></a></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -47,10 +53,10 @@
 </section>
 
 <!-- Portfolio is present here  -->
-
+<div class="table-wrapper">
 <section id="portfolio">
     <h3>Your Portfolio</h3>
-    <p>track your holdings here</p>
+    <p>Track your holdings here</p>
     <table>
         <thead>
             <tr>
@@ -64,14 +70,14 @@
         <tbody>
             {% if portfolio %}
                 {% for p in portfolio %}
-                <tr class="portfoio-row" data-symbol="{{ p.symbol }}" data-shares="{{ p.shares }}" 
+                <tr class="portfolio-row" data-symbol="{{ p.symbol }}" data-shares="{{ p.shares }}" 
                 data-avg="{{ p.avg_price }}">
 
                     <td>{{ p.symbol }}</td>
                     <td>{{ p.shares }}</td>
                     <td>{{ "%.2f"|format(p.avg_price) }}</td>
                     <td class="portfolio-current">{{ p.current_value }}</td>
-                    <td class="portfolio-gain">{{ - }}</td>
+                    <td class="portfolio-gain">{{ p.gain}}</td>
                 </tr>
                 {% endfor %}
             {% else %}
@@ -91,12 +97,12 @@
     <h3>Watchlist</h3>
     <p>Welcome to the watchlist section</p>
 
-    <form method="POST" action="/watchlist/add">
+    <form method="POST" action="/add_watchlist">
         <input type="text" name="symbol" placeholder="Add Symbol (e.g. AAPL)" required>
         <button type="submit">Add</button>
     </form>
 
-
+    <div class="table-wrapper">
     <table id="watchlist-table">
         <thead>
             <tr>
@@ -113,11 +119,11 @@
                     <td>{{ w.name }}</td>
 
 
-                    <td class="watch_price" data_symbol="{{ w.symbol }}">{{ w.price }}</td>
+                    <td class="watch-price" data-symbol="{{ w.symbol }}">{{ w.price }}</td>
 
 
                     <td>
-                        <form method="POST" action="/watchlist/remove">
+                        <form method="POST" action="/remove_watchlist">
                             <input type="hidden" name="symbol" value="{{ w.symbol }}">
                             <button type="submit">Remove</button>
                         </form>
@@ -144,67 +150,124 @@
 
 <section id="charts">
     <h3>Charts</h3>
-    <p>wait for hte mmoent buddy were gonna almsot bethere in a while</p>
+    <input type="text" id="chart-symbol" placeholder="Enter Stock Symbol (e.g. NVDA)">
+    <button id="load-chart">Load Chart</button>
+    <canvas id="stockChart" width="800" height="400"></canvas>
 </section>
 
+
+<section id="balance">
+    <h3>💰 Cash Balance</h3>
+    <p>Check your available funds here</p>
+
+    <div id="balance-card" class="balance-card">
+        <span>Total Balance:</span>
+        <span id="user-balance">💲 {{ cash_balance }}</span> <!-- initial render from backend -->
+    </div>
+</section>
+
+
 <!-- Socket.IO client -->
-<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 
 <script>
 
-    const socket=io();
+const socket=io();
 
-    function fmt(price) {
-        if(price==null||price==undefined) return "N/A";
-        if(price=="N/A") return "N/A";
-        const p=Number(price);
-        return Number.isFinite(p) ? p.toFixed(2) : price;
+function fmt(price) {
+    if(price==null||price==undefined) return "N/A";
+    if(price=="N/A") return "N/A";
+    const p=Number(price);
+    return Number.isFinite(p) ? p.toFixed(2) : price;
 
-    }
+}
 
-    socket.on("price_update", function(prices){
-        for (const symbol in prices) {
-            const price=prices[symbol];
-            const display=fmt(prices);
 
-            //market updates
-            document.querySelectorAll("td.market-price[data-symbol='$symbol']")
-            .forEach(td=>td.textContent.display);
-            //watchlist updates
+socket.on("price_update", function(latest_prices){
+    for (const symbol in latest_prices) {
+        const price=latest_prices[symbol];
+        const display=fmt(price);
 
-            document.querySelectorAll("td.watch-price[data-symbol='$symbol']")
-            .forEach(td=>td.textContent.display);
+        //market updates
+        document.querySelectorAll(`td.market-price[data-symbol='${symbol}']`)
+        .forEach(td=>td.textContent= '💲' + display);
+        //watchlist updates
 
-            document.querySelectorAll("td.portfolio-row[data-symbol='$symbol']")
-            .forEach(row=>{
-                const shares=parseFloat(row.dataset.shares) || 0;
-                const avg=parseFloat(row.dataset.avg) || 0;
-                if(Number.isFinite(number(price))){
-                    const currentValue=shares*Number(price);
-                    row.querySelector('.portfolio-current').textContent=CurrentValue.toFixed(2);
-                    if(avg>0){
-                        const gainPerc = ((Number(price)-avg)/avg)*100;
-                        row.querySelector('.portfolio-gain').textContent=gainPerc.toFixed(2) + '%';
-                    }
-                    else
-                    {
-                        row.querySelector('.potfolio-gain').textContent='-';
+        document.querySelectorAll(`td.watch-price[data-symbol='${symbol}']`)
+        .forEach(td=>td.textContent='💲'+ display);
 
-                    }
+        document.querySelectorAll(`tr.portfolio-row[data-symbol='${symbol}']`)
+        .forEach(row=>{
+            const shares=parseFloat(row.dataset.shares) || 0;
+            const avg=parseFloat(row.dataset.avg) || 0;
+            if(Number.isFinite(Number(price))){
+                const currentValue=shares*Number(price);
+                row.querySelector('.portfolio-current').textContent='💲'+currentValue.toFixed(2);
+                if(avg>0){
+                    const gainPerc = ((Number(price)-avg)/avg)*100;
+                    row.querySelector('.portfolio-gain').textContent=gainPerc.toFixed(2) + '%';
                 }
                 else
-                    {
-                        row.querySelector('.portfolio-current').textContent='N/A';
-                        row.querySelector('.portfolio-gain').textContent='-';
+                {
+                    row.querySelector('.portfolio-gain').textContent='-';
+
+                }
+            }
+            else
+            {
+                row.querySelector('.portfolio-current').textContent='N/A';
+                row.querySelector('.portfolio-gain').textContent='-';
 
 
-                    }
-                 });
+            }
+        });
+    }
+});
+
+
+let stockChart=null;
+document.getElementById("load-chart").addEventListener("click", async()=>{
+    const symbol=document.getElementById("chart-symbol").value.trim().toUpperCase();
+
+    if(!symbol) return alert("Enter a symbol");
+
+    try
+    {
+        const res=await fetch(`/dashboard/chart_data/${symbol}`);
+        const data=await res.json();
+        if(data.error) return alert(data.error);
+
+        const ctx = document.getElementById("stockChart").getContext("2d");
+        if(stockChart) stockChart.destroy();
+        stockChart=new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: data.symbol,
+                    data: data.prices,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.3
+                }]
+
+            },
+            options: {
+                responsive:true,
+                scales: {y: { beginAtZero: false }}
             }
         });
 
+    } catch(err){
+        console.error(err);
+        alert("Failed ot load chart data");
 
+    }
 
+});
 
 </script>
+
 {% endblock %}

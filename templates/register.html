@@ -2,16 +2,31 @@
 
 {% block title %}Register-finance{% endblock %}
 
+{% block style %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='/css/register.css') }}">
+
+{% endblock %}
+
+
+
 {% block content %}
-<h2>Welcome to the registration lobby</h2>
-<p>Please regsiter your username and password here</p>
-<form method="post">
-    <input name="username" type="text" placeholder="Username" required>
-    <input name="password" type="password" placeholder="Password" required>
-    <input name="confirmation" type="password" placeholder="Confirm Password" required>
-    <button type="submit">Register</button>
-</form>
-{% if error %}
-    <p style="color:red;">{{ error }}</p>
-{% endif %}
+<div class="register-container">
+    <div class="register-card">
+        <h2>✨Let’s Get You Onboard✨</h2>
+        <p>Please register your username and password here</p>
+
+    <form method="post">
+        <input name="username" type="text" placeholder="👤Username" autofocus required>
+        <input name="password" type="password" placeholder="🔒Password" autofocus required>
+        <input name="confirmation" type="password" placeholder="🔄Confirm Password" autofocus required>
+        <button type="submit">🚀Register</button>
+    </form>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    </div>
+</div>
 {% endblock %}

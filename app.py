@@ -1,45 +1,49 @@
-from flask import Flask, request, session, render_template, redirect
+from flask import Flask, request, session, render_template, redirect, jsonify
 from cs50 import SQL
 from werkzeug.security import check_password_hash, generate_password_hash
 import yfinance as yf
 from flask_socketio import SocketIO, emit
 
+
+
 app = Flask(__name__)
 app.secret_key="yoitsme"
 
-socketio=SocketIO(app, cors_allowed_orgins="*")
+socketio=SocketIO(app, cors_allowed_origins="*")
 
 db = SQL("sqlite:///finance.db")
 
 live_stocks=["AAPL", "TSLA", "GOOG", "MSFT", "AMZN", "NVDA", "META", "NFLX", "BABA", "DIS",
              "ORCL", "IBM", "INTC", "ADBE", "PYPL", "SHOP", "SQ", "UBER", "LYFT", "ZM"]
 
+latest_prices={s:"N/A" for s in live_stocks}
+stock_names={}
+_poller_started=False
+
 #background flag so we dont start multiple pollers
 
 def price_poller():
-    # Backgorund loop whcih fetches latest prices for live_stocks and emit them
+    # Backgorund loop which fetches latest prices for live_stocks and emit them
     import time
+    global latest_prices, stock_names
+
     while True:
-        prices={}
-        for s in live_stocks:
-            try:
-                t=yf.Ticker(s)
-                info=t.info or {}
-                p=info.get("regularMarketPrice")
-                # fallback to last close if price none
+        try:
+            tickers = yf.Tickers(" ".join(live_stocks))
+            for symbol, ticker in tickers.tickers.items():
+                try:
+                    p = ticker.info.get("regularMarketPrice")
+                    latest_prices[symbol] = round(p, 2) if p is not None else "N/A"
+                    stock_names[symbol] = ticker.info.get("longName", symbol)
+                except Exception:
+                    latest_prices[symbol] = "N/A"
+                    stock_names[symbol] = symbol
+        except Exception:
+            # If fetching batch fails, skip this round
+            pass
+        socketio.emit("price_update", latest_prices)
+        socketio.sleep(6)
 
-                if p is None:
-                    hist=t.history(period="id")
-                    p=float(hist["close"][-1]) if (not hist.empty) else None
-                    prices[s]=round(p,2) if isinstance(p, (int, float)) else "N/A"
-
-
-            except Exception:
-                prices[s]="N/A"
-
-            socketio.emit("price_update", prices),
-
-            socketio.sleep(5)
 
 @socketio.on("connect")
 def _on_connect():
@@ -63,21 +67,10 @@ def dashboard():
     
     stock_data=[]
     for symbol in live_stocks:
-        try:
-            #using real live market price for the you know what it is
-            ticker=yf.Ticker(symbol)
-            price=ticker.info.get("regularMarketPrice", "N/A")
-            name=ticker.info.get("longName", symbol)
             stock_data.append({
                 "symbol":symbol,
-                "name":name,
-                "price":price
-            })
-        except:
-            stock_data.append({
-                "symbol":symbol,
-                "name":name,
-                "price":"N/A"
+                "name":stock_names.get(symbol, symbol),
+                "price": latest_prices.get(symbol, "N/A")
             })
 
             #getting the username
@@ -90,28 +83,25 @@ def dashboard():
     #Portfolio dashboard
     portfolio=db.execute("SELECT * FROM holdings WHERE user_id=?", user_id)
 
-
     #Watchlist dashboard
-    raw_watch=db.execute("SELECT * FROM watchlist WHERE id=?", user_id)
+    raw_watch=db.execute("SELECT * FROM watchlist WHERE user_id=?", user_id)
     watchlist=[]
     for r in raw_watch:
         sym=r["symbol"]
-        try:
-            t=yf.Ticker(sym)
-            info=t.info or {}
-            price=info.get("regularMarketPrice", "N/A")
-            name=info.get("longName",sym)
-        except Exception:
-            price="N/A"
-            name=sym
-        watchlist.append({"symbol":sym, "name":name, "price": price})
+        
+        watchlist.append({"symbol":sym,
+                           "name":stock_names.get(sym, sym),
+                             "price":latest_prices.get(sym, "N/A")})
          
-    u=db.execute("SELECT username FROM users WHERE user_id=?", user_id)
+    u=db.execute("SELECT username FROM users WHERE id=?", user_id)
     username=u[0]["username"] if u else "User"
+
+    cash_row=db.execute("SELECT cash FROM users WHERE id=?", user_id)
+    cash_balance=cash_row[0]["cash"] if cash_row else 0.0
 
 
     return render_template("dashboard.html", username=username, stocks=stock_data,
-                            portfolio=portfolio, watchlist=watchlist )
+                            portfolio=portfolio, watchlist=watchlist, cash_balance=cash_balance )
 
 
 
@@ -166,7 +156,7 @@ def logout():
     return redirect("/")
 
 #the search stocks code is present here
-@app.route("/search_stock", methods=["GET", "POST"])
+@app.route("/search_stocks", methods=["GET", "POST"])
 def search_stocks():
     if request.method=="POST":
         query=request.form.get("query").strip()
@@ -185,7 +175,7 @@ def search_stocks():
 
 @app.route("/trade/<symbol>", methods=["GET", "POST"])
 def trade(symbol):
-    if user_id not in session:
+    if "user_id" not in session:
         return redirect("/login")
     
     user_id=session["user_id"]
@@ -193,7 +183,7 @@ def trade(symbol):
     try:
         ticker=yf.Ticker(symbol)
         price=ticker.info.get("regularMarketPrice", "N/A")
-        name=ticker.info.get("longname",symbol) 
+        name=ticker.info.get("longName",symbol) 
     except:
         price="N/A"
         name=symbol
@@ -211,7 +201,7 @@ def trade(symbol):
             return render_template("trade.html", name=name, symbol=symbol, price=price , error="Invalid response")
         
         #fetching user cash and current hldings
-        user=db.exceute("SELECT cash FROM users WHERE id=?", user_id)
+        user=db.execute("SELECT cash FROM users WHERE id=?", user_id)
         user_cash=user[0]["cash"]
 
         holding=db.execute("SELECT shares, avg_price FROM holdings WHERE user_id=? AND symbol=?", user_id, symbol)
@@ -228,37 +218,37 @@ def trade(symbol):
 
             if holding:
                 new_shares=current_shares + quantity
-                new_avg=((current_shares*avg_price)*total_cost)/new_shares
+                new_avg=((current_shares*avg_price)+total_cost)/new_shares
                 db.execute("UPDATE holdings SET shares=?, avg_price=? WHERE user_id=? AND symbol=?", new_shares, new_avg, user_id,symbol)
             else:
-                db.execute("INSERT INTO holdings(user_id,symbol,shares,avg_price) VALUES (?,?,?,?)",(user_id, symbol, quantity, price))
+                db.execute("INSERT INTO holdings(user_id,symbol,shares,avg_price) VALUES (?,?,?,?)",user_id, symbol, quantity, price)
 
             
-            #updat user cash
+            #update user cash
 
             new_cash=user_cash - total_cost
-            db.execute("UPDATE users SET cash=? WHERE id=?", (new_cash, user_id))
+            db.execute("UPDATE users SET cash=? WHERE id=?",new_cash, user_id)
 
             #record_transaction
-            db.execute("INSERT INTO transactions (user_id, symbol, shares, price, type) VALUES (?, ?, ?, ?, ?)",(user_id,symbol,quantity,price,"buy"))
-            return render_template("trade.html",symbol=symbol,name=name, price=price, success=f"brought (quantity) of (symbol)")
+            db.execute("INSERT INTO transactions (user_id, symbol, shares, price, type) VALUES (?, ?, ?, ?, ?)",user_id,symbol,quantity,price,"buy")
+            return render_template("trade.html",symbol=symbol,name=name, price=price, success=f"Bought {quantity} of {symbol}")
         
         #sell logic will be here
 
         elif action=="sell":
             if current_shares<quantity:
-                return render_template("trade.html", symbol=symbol, price=price, name=name, error="Hey, you have less shares for (symbol) than you ar trying to buy")
+                return render_template("trade.html", symbol=symbol, price=price, name=name, error="Hey, you have less shares for {symbol} than you ar trying to buy")
         
             total_gain=quantity*price
             new_shares=current_shares-quantity
 
             if new_shares==0:
-                db.execute("DELETE FROM holdings WHERE user_id=? AND symbol=?",(user_id, symbol))
+                db.execute("DELETE FROM holdings WHERE user_id=? AND symbol=?",user_id, symbol)
             else:
-                db.execute("UPDATE holdings SET shares=? WHERE user_id=? AND symbol=?",(new_shares, user_id, symbol))
+                db.execute("UPDATE holdings SET shares=? WHERE user_id=? AND symbol=?",new_shares, user_id, symbol)
 
             new_cash = user_cash + total_gain
-            db.execute("INSERT INTO transactions (user_id, symbol, shares, price, type) VALUES (?, ?, ?, ?, ?)", (user_id, symbol, quantity, price, "sell"))
+            db.execute("INSERT INTO transactions (user_id, symbol, shares, price, type) VALUES (?, ?, ?, ?, ?)",user_id, symbol, quantity, price, "sell")
             
             return render_template("trade.html", symbol=symbol, name=name, price=price, success=f"Sold {quantity} shares of {symbol}")
 
@@ -277,10 +267,10 @@ def add_watchlist():
     symbol=request.form.get("symbol")
 
     if not symbol:
-        return redirect("/dashbaord")
+        return redirect("/dashboard")
     
     # prevent duplicates
-    existing=db.execute("SELECT * FROM watchlist WHERE user_id=? AND symbol=", user_id,symbol)
+    existing=db.execute("SELECT * FROM watchlist WHERE user_id=? AND symbol=?", user_id, symbol)
     if existing:
         return redirect("/dashboard")
     
@@ -299,6 +289,21 @@ def remove_watchlist():
 
     db.execute("DELETE FROM watchlist where user_id=? AND symbol=?", user_id, symbol)
     return redirect("/dashboard")
+
+
+
+
+@app.route("/dashboard/chart_data/<symbol>")
+def chart_data(symbol):
+    try:
+        ticker=yf.Ticker(symbol)
+        hist=ticker.history(period="1mo", interval="1d")
+        chart_labels=[str(date.date()) for date in hist.index]
+        chart_prices=[round(price, 2) for price in hist["Close"]]
+        return jsonify({"labels":chart_labels, "prices":chart_prices, "symbol": symbol})
+    except:
+        return jsonify({"error": "Failed to fetch chart data"}), 400
+
     
 
 

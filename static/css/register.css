@@ -1,0 +1,72 @@
+.register-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 85vh;
+    position: relative;
+    z-index: 1; /* above particles */
+}
+
+.register-card {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    border-radius: 18px;
+    padding: 2.5rem 3rem;
+    text-align: center;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    max-width: 420px;
+    width: 100%;
+}
+
+.register-card h2 {
+    margin-bottom: 0.5rem;
+    font-size: 1.8rem;
+    color: #fff;
+}
+
+.register-card p {
+    margin-bottom: 1.5rem;
+    color: #ddd;
+}
+
+.register-card input {
+    width: 85%;
+    padding: 12px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    outline: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    transition: background 0.3s ease;
+}
+
+.register-card input:focus {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.register-card button {
+    width: 85%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    margin-top: 15px;
+    background: linear-gradient(90deg, #7b2ff7, #f107a3);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.register-card button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(123, 47, 247, 0.5);
+}
+
+.error {
+    color: #ff6b6b;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}

@@ -1,10 +1,60 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta name="viewport" content="initial-scale=1, width=device-width">
-        <title>{% block title %}Finance app{% endblock %}</title>
-    </head>
-    <body>
-        {% block content %}{% endblock %}
-    </body>
+<head>
+    <meta name="viewport" content="initial-scale=1, width=device-width">
+    <title>{% block title %}Finance App{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/background.css') }}">
+    {% block style %}{% endblock %}
+</head>
+<body>
+
+<!-- Particle container -->
+<div class="particles-container" id="particles-container"></div>
+
+<!-- Main content wrapper -->
+<div class="content-wrapper">
+    {% block content %}{% endblock %}
+</div>
+
+<script>
+const container = document.getElementById('particles-container');
+const numParticles = 150; // adjust density
+
+for (let i = 0; i < numParticles; i++) {
+    const particle = document.createElement('div');
+    particle.classList.add('particle');
+
+    // random starting position
+    particle.style.left = Math.random() * 100 + 'vw';
+    particle.style.top = Math.random() * 100 + 'vh';
+
+    // random size: 2px to 5px
+    const size = Math.random() * 3 + 2;
+    particle.style.width = size + 'px';
+    particle.style.height = size + 'px';
+
+    // random speed: 8s to 20s
+    particle.style.animationDuration = (Math.random() * 12 + 8) + 's';
+
+    // random delay
+    particle.style.animationDelay = (Math.random() * 10) + 's';
+
+    // random opacity for variety
+    particle.style.opacity = (Math.random() * 0.5 + 0.5).toString();
+
+    // small random horizontal drift factor
+    particle.dataset.drift = (Math.random() * 20 - 10); // -10vw to +10vw
+
+    container.appendChild(particle);
+}
+
+// Add small JS to handle dynamic drift
+const particles = document.querySelectorAll('.particle');
+particles.forEach(p => {
+    const drift = p.dataset.drift;
+    p.style.setProperty('--drift', drift + 'vw');
+});
+</script>
+
+</body>
 </html>
